@@ -1,6 +1,7 @@
 from conans import ConanFile, CMake, tools, AutoToolsBuildEnvironment
 
 SOURCE_ARCHIVE = "tango-9.2.5a.tar.gz"
+TANGO_CONFIG_FOR_GCC49_PATCH = "tango_config_for_gcc49.patch"
 
 
 class TangoConan(ConanFile):
@@ -17,10 +18,12 @@ class TangoConan(ConanFile):
     generators = "cmake"
     file_prefix = "{0}-{1}".format(name, version)
     source_archive = "{0}.tar.gz".format(file_prefix)
-    exports_sources = source_archive,
+    exports_sources = source_archive, TANGO_CONFIG_FOR_GCC49_PATCH
 
     def source(self):
         tools.unzip(TangoConan.source_archive)
+        # G++ 4.9 does not seem to support abi_tag correctly, but still wants to use it (_GLIBCXX_USE_CXX11_ABI=1)
+        tools.patch(patch_file=TANGO_CONFIG_FOR_GCC49_PATCH)
 
     def build(self):
         path = "{0}/{1}".format(self.source_folder, self.file_prefix)
@@ -42,7 +45,7 @@ class TangoConan(ConanFile):
         autotools.install()
 
     def package_info(self):
-        self.cpp_info.libs = ["tango"]
+        self.cpp_info.libs = ["tango", "tango", "omniDynamic4", "COS4", "omniORB4", "omnithread", "log4tango", "zmq"]
         self.cpp_info.includedirs = ["include/tango"]
 
 
