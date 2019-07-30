@@ -43,5 +43,6 @@ class TangoConan(ConanFile):
 
     def package_info(self):
         self.cpp_info.libs = ["tango"]
+        self.cpp_info.includedirs = ["include/tango"]
 
 
