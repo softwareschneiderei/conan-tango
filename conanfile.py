@@ -35,6 +35,7 @@ class TangoConan(ConanFile):
             "--disable-java",
             "--disable-dbserver",
             "--disable-dbcreate",
+            "--disable-silent-rules",
             "--with-zlib={0}".format(self.deps_cpp_info["zlib"].rootpath),
             "--with-zmq={0}".format(self.deps_cpp_info["zmq"].rootpath),
         ]
