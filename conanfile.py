@@ -1,8 +1,16 @@
+import os
+from shutil import copyfile
 from conans import ConanFile, tools, AutoToolsBuildEnvironment
 
 
 SOURCE_ARCHIVE = "tango-9.2.5a.tar.gz"
 TANGO_CONFIG_FOR_GCC49_PATCH = "tango_config_for_gcc49.patch"
+
+
+def replace_prefix_everywhere_in_pc_file(file, prefix):
+    pkg_config = tools.PkgConfig(file)
+    old_prefix = pkg_config.variables["prefix"]
+    tools.replace_in_file(file, old_prefix, prefix)
 
 
 class TangoConan(ConanFile):
@@ -26,26 +34,30 @@ class TangoConan(ConanFile):
         tools.unzip(TangoConan.source_archive)
         # G++ 4.9 does not seem to support abi_tag correctly, but still wants to use it (_GLIBCXX_USE_CXX11_ABI=1)
         tools.patch(patch_file=TANGO_CONFIG_FOR_GCC49_PATCH)
-        # Work around ZMQ storing absolute paths in the .pc file for pkg-config
-        tools.replace_in_file("tango-9.2.5a/configure.ac",
-                              "ZMQ_ROOT=`eval pkg-config --variable=prefix libzmq`",
-                              "ZMQ_ROOT=${ZMQ_PREFIX}")
 
     def build(self):
         path = "{0}/{1}".format(self.source_folder, self.file_prefix)
-        autotools = AutoToolsBuildEnvironment(self)
 
-        args = [
-            "--disable-java",
-            "--disable-dbserver",
-            "--disable-dbcreate",
-            "--with-zlib={0}".format(self.deps_cpp_info["zlib"].rootpath),
-            "--with-zmq={0}".format(self.deps_cpp_info["zmq"].rootpath),
-        ]
-        autotools.configure(
-            configure_dir=path,
-            args=args)
-        autotools.make()
+        # Get and patch the zmq pc file prefix paths
+        pc_file = "libzmq.pc"
+        libzmq_pc_source = os.path.join(self.deps_cpp_info["zmq"].rootpath, "lib/pkgconfig", pc_file)
+        copyfile(libzmq_pc_source, pc_file)
+        replace_prefix_everywhere_in_pc_file(pc_file, self.deps_cpp_info["zmq"].rootpath)
+
+        with tools.environment_append({"PKG_CONFIG_PATH": os.getcwd()}):
+            autotools = AutoToolsBuildEnvironment(self)
+
+            args = [
+                "--disable-java",
+                "--disable-dbserver",
+                "--disable-dbcreate",
+                "--with-zlib={0}".format(self.deps_cpp_info["zlib"].rootpath),
+                "--with-zmq={0}".format(self.deps_cpp_info["zmq"].rootpath),
+            ]
+            autotools.configure(
+                configure_dir=path,
+                args=args)
+            autotools.make()
 
     def system_requirements(self):
         # Probably nicer to do this via conan packages, e.g. https://github.com/nwoetzel/conan-omniorb
