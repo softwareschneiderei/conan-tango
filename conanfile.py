@@ -26,6 +26,10 @@ class TangoConan(ConanFile):
         tools.unzip(TangoConan.source_archive)
         # G++ 4.9 does not seem to support abi_tag correctly, but still wants to use it (_GLIBCXX_USE_CXX11_ABI=1)
         tools.patch(patch_file=TANGO_CONFIG_FOR_GCC49_PATCH)
+        # Work around ZMQ storing absolute paths in the .pc file for pkg-config
+        tools.replace_in_file("tango-9.2.5a/configure.ac",
+                              "ZMQ_ROOT=`eval pkg-config --variable=prefix libzmq`",
+                              "ZMQ_ROOT=${ZMQ_PREFIX}")
 
     def build(self):
         path = "{0}/{1}".format(self.source_folder, self.file_prefix)
@@ -35,7 +39,6 @@ class TangoConan(ConanFile):
             "--disable-java",
             "--disable-dbserver",
             "--disable-dbcreate",
-            "--disable-silent-rules",
             "--with-zlib={0}".format(self.deps_cpp_info["zlib"].rootpath),
             "--with-zmq={0}".format(self.deps_cpp_info["zmq"].rootpath),
         ]
