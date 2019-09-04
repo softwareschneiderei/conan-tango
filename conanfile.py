@@ -32,7 +32,7 @@ class TangoConan(ConanFile):
         autotools.make()
 
     def system_requirements(self):
-        # Probably nicer to do this via conan packages...
+        # Probably nicer to do this via conan packages, e.g. https://github.com/nwoetzel/conan-omniorb
         if self.settings.os == "Linux" and tools.os_info.is_linux:
             if tools.os_info.with_apt:
                 installer = tools.SystemPackageTool()
