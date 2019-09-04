@@ -47,7 +47,7 @@ class TangoConan(ConanFile):
         if self.settings.os == "Linux" and tools.os_info.is_linux:
             if tools.os_info.with_apt:
                 installer = tools.SystemPackageTool()
-                packages = ["libomniorb4-dev", "omniidl"]
+                packages = ["libomniorb4-dev", "libomniorb4-2", "omniidl", "libcos4-2", "libcos4-dev"]
                 for package in packages:
                     installer.install(package)
 
