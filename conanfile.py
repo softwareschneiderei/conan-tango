@@ -20,7 +20,7 @@ class TangoConan(ConanFile):
     file_prefix = "{0}-{1}".format(name, version)
     source_archive = "{0}.tar.gz".format(file_prefix)
     exports_sources = source_archive, TANGO_CONFIG_FOR_GCC49_PATCH
-    requires = "zlib/1.2.11@conan/stable",
+    requires = "zlib/1.2.11@conan/stable", "zmq/4.3.1@bincrafters/stable"
 
     def source(self):
         tools.unzip(TangoConan.source_archive)
@@ -35,7 +35,8 @@ class TangoConan(ConanFile):
             "--disable-java",
             "--disable-dbserver",
             "--disable-dbcreate",
-            "--with-zlib={0}".format(self.deps_cpp_info["zlib"].rootpath)
+            "--with-zlib={0}".format(self.deps_cpp_info["zlib"].rootpath),
+            "--with-zmq={0}".format(self.deps_cpp_info["zmq"].rootpath),
         ]
         autotools.configure(
             configure_dir=path,
@@ -47,7 +48,7 @@ class TangoConan(ConanFile):
         if self.settings.os == "Linux" and tools.os_info.is_linux:
             if tools.os_info.with_apt:
                 installer = tools.SystemPackageTool()
-                packages = ["libomniorb4-dev", "libomniorb4-2", "omniidl", "libcos4-2", "libcos4-dev"]
+                packages = ["libomniorb4-dev", "omniorb", "omniidl", "libcos4-dev"]
                 for package in packages:
                     installer.install(package)
 
