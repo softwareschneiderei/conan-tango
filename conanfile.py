@@ -1,4 +1,5 @@
-from conans import ConanFile, CMake, tools, AutoToolsBuildEnvironment
+from conans import ConanFile, tools, AutoToolsBuildEnvironment
+
 
 SOURCE_ARCHIVE = "tango-9.2.5a.tar.gz"
 TANGO_CONFIG_FOR_GCC49_PATCH = "tango_config_for_gcc49.patch"
@@ -19,6 +20,7 @@ class TangoConan(ConanFile):
     file_prefix = "{0}-{1}".format(name, version)
     source_archive = "{0}.tar.gz".format(file_prefix)
     exports_sources = source_archive, TANGO_CONFIG_FOR_GCC49_PATCH
+    requires = "zlib/1.2.11@conan/stable",
 
     def source(self):
         tools.unzip(TangoConan.source_archive)
@@ -28,7 +30,16 @@ class TangoConan(ConanFile):
     def build(self):
         path = "{0}/{1}".format(self.source_folder, self.file_prefix)
         autotools = AutoToolsBuildEnvironment(self)
-        autotools.configure(configure_dir=path, args=["--disable-java", "--disable-dbserver", "--disable-dbcreate"])
+
+        args = [
+            "--disable-java",
+            "--disable-dbserver",
+            "--disable-dbcreate",
+            "--with-zlib={0}".format(self.deps_cpp_info["zlib"].rootpath)
+        ]
+        autotools.configure(
+            configure_dir=path,
+            args=args)
         autotools.make()
 
     def system_requirements(self):
