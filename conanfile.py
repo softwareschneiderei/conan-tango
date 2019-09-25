@@ -51,6 +51,8 @@ class TangoConan(ConanFile):
                 "--disable-java",
                 "--disable-dbserver",
                 "--disable-dbcreate",
+                "--enable-static={0}".format("no" if self.options.shared else "yes"),
+                "--enable-shared={0}".format("yes" if self.options.shared else "no"),
                 "--with-zlib={0}".format(self.deps_cpp_info["zlib"].rootpath),
                 "--with-zmq={0}".format(self.deps_cpp_info["zmq"].rootpath),
             ]
