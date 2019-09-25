@@ -75,7 +75,7 @@ class TangoConan(ConanFile):
         autotools.install()
 
     def package_info(self):
-        self.cpp_info.libs = ["tango", "omniDynamic4", "COS4", "omniORB4", "omnithread", "log4tango"]
+        self.cpp_info.libs = ["tango", "omniDynamic4", "COS4", "omniORB4", "omnithread", "log4tango", "dl"]
         self.cpp_info.includedirs = ["include/tango"]
 
 
