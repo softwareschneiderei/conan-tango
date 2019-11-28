@@ -1,7 +1,7 @@
 import os
 from shutil import copyfile
-from conans import ConanFile, tools, AutoToolsBuildEnvironment
-from conans.errors import ConanInvalidConfiguration
+from conans import ConanFile, tools, CMake
+from conans.errors import ConanException, ConanInvalidConfiguration
 
 SOURCE_ARCHIVE = "tango-9.2.5a.tar.gz"
 TANGO_CONFIG_FOR_GCC49_PATCH = "tango_config_for_gcc49.patch"
@@ -15,7 +15,7 @@ def replace_prefix_everywhere_in_pc_file(file, prefix):
 
 class TangoConan(ConanFile):
     name = "tango"
-    version = "9.2.5a"
+    version = "9.3.3"
     license = "LGPL-3.0"
     author = "Marius Elvert marius.elvert@softwareschneiderei.de"
     url = "https://github.com/softwareschneiderei/conan-tango"
@@ -28,52 +28,39 @@ class TangoConan(ConanFile):
     file_prefix = "{0}-{1}".format(name, version)
     source_archive = "{0}.tar.gz".format(file_prefix)
     exports_sources = source_archive, TANGO_CONFIG_FOR_GCC49_PATCH
-    requires = "zlib/1.2.11@conan/stable", "zmq/4.3.1@bincrafters/stable", "omniorb/4.2.2@None/None"
+    requires = "zlib/1.2.11@conan/stable", "zmq/4.3.1@bincrafters/stable",\
+               "cppzmq/4.4.1@bincrafters/stable", "omniorb/4.2.2@None/None"
 
     def source(self):
-        tools.unzip(TangoConan.source_archive)
-        # G++ 4.9 does not seem to support abi_tag correctly, but still wants to use it (_GLIBCXX_USE_CXX11_ABI=1)
-        tools.patch(patch_file=TANGO_CONFIG_FOR_GCC49_PATCH)
+        tools.Git(folder="cppTango")\
+            .clone("https://github.com/tango-controls/cppTango.git",
+                   branch="9.3.3", shallow=True)
+        tools.Git(folder="tango-idl")\
+            .clone("https://github.com/tango-controls/tango-idl",
+                   branch="1e5edb84d966814ad367f2674ac9a5658b6724ac", shallow=True)
 
     def configure(self):
         if self.settings.os == "Linux" and tools.os_info.is_linux and self.settings.compiler.libcxx != "libstdc++11":
             raise ConanInvalidConfiguration("Conan needs the setting 'compiler.libcxx' to be 'libstdc++11' on linux")
 
+    def _configured_cmake(self):
+        source_location = os.path.join(self.source_folder, "cppTango")
+        cmake = CMake(self)
+        cmake.configure(
+            source_folder=source_location,
+            defs={
+                'IDL_BASE': os.path.join(self.source_folder, "tango-idl"),
+                'OMNI_BASE': self.deps_cpp_info["omniorb"].rootpath,
+                'ZMQ_BASE': self.deps_cpp_info["zmq"].rootpath,
+                'CPPZMQ_BASE': self.deps_cpp_info["cppzmq"].rootpath,
+            })
+        return cmake
+
     def build(self):
-        path = "{0}/{1}".format(self.source_folder, self.file_prefix)
-
-        # Get and patch the zmq pc file prefix paths
-        pc_file = "libzmq.pc"
-        libzmq_pc_source = os.path.join(self.deps_cpp_info["zmq"].rootpath, "lib/pkgconfig", pc_file)
-        copyfile(libzmq_pc_source, pc_file)
-        replace_prefix_everywhere_in_pc_file(pc_file, self.deps_cpp_info["zmq"].rootpath)
-
-        with tools.environment_append({"PKG_CONFIG_PATH": os.getcwd()}):
-            autotools = AutoToolsBuildEnvironment(self)
-
-            # It looks like the libs injected from the requirements break the "test compile" stages in the configure stage
-            # autotools.libs = []
-
-            args = [
-                "--disable-java",
-                "--disable-dbserver",
-                "--disable-dbcreate",
-                "--enable-static={0}".format("no" if self.options.shared else "yes"),
-                "--enable-shared={0}".format("yes" if self.options.shared else "no"),
-                "--with-zlib={0}".format(self.deps_cpp_info["zlib"].rootpath),
-                "--with-zmq={0}".format(self.deps_cpp_info["zmq"].rootpath),
-                "--with-omni={0}".format(self.deps_cpp_info["omniorb"].rootpath),
-            ]
-
-            autotools.configure(
-                configure_dir=path,
-                pkg_config_paths=[os.getcwd()],
-                args=args)
-            autotools.make()
+        self._configured_cmake().build()
 
     def package(self):
-        autotools = AutoToolsBuildEnvironment(self)
-        autotools.install()
+        self._configured_cmake().install()
 
     def package_info(self):
         self.cpp_info.libs = ["tango", "log4tango", "dl"]
