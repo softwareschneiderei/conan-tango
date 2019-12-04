@@ -1,4 +1,5 @@
 import os
+import shutil
 from shutil import copyfile
 from conans import ConanFile, tools, CMake
 from conans.errors import ConanException, ConanInvalidConfiguration
@@ -45,19 +46,24 @@ class TangoConan(ConanFile):
 
     def _configured_cmake(self):
         source_location = os.path.join(self.source_folder, "cppTango")
+        idl_location = os.path.join(self.source_folder, "tango-idl")
+        os.makedirs("tango-idl/include", exist_ok=True)
+        shutil.copy(os.path.join(idl_location, "tango.idl"), os.path.join(self.build_folder, "tango-idl/include/"))
         cmake = CMake(self)
-        cmake.configure(
-            source_folder=source_location,
-            defs={
-                'IDL_BASE': os.path.join(self.source_folder, "tango-idl"),
-                'OMNI_BASE': self.deps_cpp_info["omniorb"].rootpath,
-                'ZMQ_BASE': self.deps_cpp_info["zmq"].rootpath,
-                'CPPZMQ_BASE': self.deps_cpp_info["cppzmq"].rootpath,
-            })
+        with tools.environment_append({"OMNI_BASE": self.deps_cpp_info["omniorb"].rootpath}):
+            cmake.configure(
+                source_folder=source_location,
+                defs={
+                    'IDL_BASE': os.path.join(self.build_folder, "tango-idl"),
+                    'OMNI_BASE': self.deps_cpp_info["omniorb"].rootpath,
+                    'ZMQ_BASE': self.deps_cpp_info["zmq"].rootpath,
+                    'CPPZMQ_BASE': self.deps_cpp_info["cppzmq"].rootpath,
+                })
         return cmake
 
     def build(self):
-        self._configured_cmake().build()
+        target = "tango" if self.options.shared else "tango-static"
+        self._configured_cmake().build(target=target)
 
     def package(self):
         self._configured_cmake().install()
