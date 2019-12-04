@@ -49,10 +49,14 @@ class TangoConan(ConanFile):
         idl_location = os.path.join(self.source_folder, "tango-idl")
         os.makedirs("tango-idl/include", exist_ok=True)
         shutil.copy(os.path.join(idl_location, "tango.idl"), os.path.join(self.build_folder, "tango-idl/include/"))
+
+        # conan seems to only support in-source builds right now
+        shutil.copytree(source_location, self.build_folder, dirs_exist_ok=True)
+
         cmake = CMake(self)
         with tools.environment_append({"OMNI_BASE": self.deps_cpp_info["omniorb"].rootpath}):
             cmake.configure(
-                source_folder=source_location,
+                source_folder=self.build_folder,
                 defs={
                     'IDL_BASE': os.path.join(self.build_folder, "tango-idl"),
                     'OMNI_BASE': self.deps_cpp_info["omniorb"].rootpath,
