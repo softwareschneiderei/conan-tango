@@ -6,6 +6,8 @@ from conans.errors import ConanException, ConanInvalidConfiguration
 
 NO_SED_PATCH = "0001-Do-not-use-sed-for-file-enhancements.patch"
 CPPZMQ_INSTALL_PATCH = "fix_cppzmq_install_paths.patch"
+MAKE_PTHREAD_WIN_TRULY_OPTIONAL = "make_pthread_win_truly_optional.patch"
+
 PTHREADS_WIN32 = "https://github.com/tango-controls/Pthread_WIN32/releases/download/2.9.1/pthreads-win32-2.9.1_{0}.zip"
 
 
@@ -24,12 +26,18 @@ class TangoConan(ConanFile):
     description = "Tango Control System "
     topics = ("control-system",)
     settings = "os", "compiler", "build_type", "arch"
-    options = {"shared": [True, False]}
-    default_options = "shared=False"
+    options = {
+        "shared": [True, False],
+        "pthread_windows": [True, False]
+    }
+    default_options = {
+        "shared": False,
+        "pthread_windows": False
+    }
     generators = "cmake"
     file_prefix = "{0}-{1}".format(name, version)
     source_archive = "{0}.tar.gz".format(file_prefix)
-    exports_sources = NO_SED_PATCH, CPPZMQ_INSTALL_PATCH,
+    exports_sources = NO_SED_PATCH, CPPZMQ_INSTALL_PATCH, MAKE_PTHREAD_WIN_TRULY_OPTIONAL
     requires = "zlib/1.2.11@conan/stable", "zmq/4.3.1@bincrafters/stable",\
                "cppzmq/4.4.1@bincrafters/stable", "omniorb/4.2.2@None/None"
 
@@ -62,9 +70,12 @@ class TangoConan(ConanFile):
         if self.settings.os == "Linux" and tools.os_info.is_linux and self.settings.compiler.libcxx != "libstdc++11":
             raise ConanInvalidConfiguration("Conan needs the setting 'compiler.libcxx' to be 'libstdc++11' on linux")
 
+    def config_options(self):
+        if self.settings.os != "Windows":
+            del self.options.pthread_windows
+
     def _env_and_vars(self):
         return {
-            "PTHREAD_WIN": os.path.join(self.build_folder, "pthreads-win32").replace("\\", "/"),
             "OMNI_BASE": self.deps_cpp_info["omniorb"].rootpath,
             'ZMQ_BASE': self.deps_cpp_info["zmq"].rootpath,
             'CPPZMQ_BASE': self.deps_cpp_info["cppzmq"].rootpath,
@@ -78,6 +89,8 @@ class TangoConan(ConanFile):
                 'IDL_BASE': os.path.join(self.build_folder, "tango-idl").replace("\\", "/"),
                 'CMAKE_INSTALL_COMPONENT': "dynamic" if self.options.shared else "static",
             }
+            if self.settings.os == "Windows" and self.options.pthread_windows:
+                defs["PTHREAD_WIN"] = os.path.join(self.build_folder, "pthreads-win32").replace("\\", "/")
             defs.update(env_and_vars)
 
             cmake.configure(
@@ -86,7 +99,7 @@ class TangoConan(ConanFile):
         return cmake
 
     def build(self):
-        if self.settings.os == "Windows":
+        if self.settings.os == "Windows" and self.options.pthread_windows:
             self._download_windows_pthreads()
         source_location = os.path.join(self.source_folder, "cppTango")
         idl_location = os.path.join(self.source_folder, "tango-idl")
@@ -96,7 +109,7 @@ class TangoConan(ConanFile):
         # conan seems to only support in-source builds right now
         shutil.copytree(source_location, self.build_folder, ignore=shutil.ignore_patterns(".git"), dirs_exist_ok=True)
 
-        for patch in [NO_SED_PATCH, CPPZMQ_INSTALL_PATCH]:
+        for patch in [NO_SED_PATCH, CPPZMQ_INSTALL_PATCH, MAKE_PTHREAD_WIN_TRULY_OPTIONAL]:
             self.output.info("Applying patch: {0}".format(patch))
             tools.patch(patch_file=os.path.join(self.source_folder, patch))
 
@@ -112,5 +125,5 @@ class TangoConan(ConanFile):
             self.run(command=cmd, cwd=self.build_folder)
 
     def package_info(self):
-        self.cpp_info.libs = ["tango", "log4tango", "dl"]
+        self.cpp_info.libs = ["tango"]
         self.cpp_info.includedirs = ["include/tango"]
