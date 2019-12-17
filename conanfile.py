@@ -4,12 +4,14 @@ from shutil import copyfile
 from conans import ConanFile, tools, CMake
 from conans.errors import ConanException, ConanInvalidConfiguration
 
+DISABLE_RUNTIME_LIBRARY_OVERRIDES = "disable_runtime_library_overrides.patch"
 NO_SED_PATCH = "0001-Do-not-use-sed-for-file-enhancements.patch"
 CPPZMQ_INSTALL_PATCH = "fix_cppzmq_install_paths.patch"
 MAKE_PTHREAD_WIN_TRULY_OPTIONAL = "make_pthread_win_truly_optional.patch"
 TANGO_CONFIG_RESILIENT_AGAINST_PREDEFINES = "tango_config_resilient_against_predefines.patch"
 
-PATCHES = [NO_SED_PATCH, CPPZMQ_INSTALL_PATCH,
+PATCHES = [DISABLE_RUNTIME_LIBRARY_OVERRIDES,
+           NO_SED_PATCH, CPPZMQ_INSTALL_PATCH,
            MAKE_PTHREAD_WIN_TRULY_OPTIONAL,
            TANGO_CONFIG_RESILIENT_AGAINST_PREDEFINES]
 
@@ -134,7 +136,11 @@ class CppTangoConan(ConanFile):
         if self.settings.os == "Windows":
             debug_suffix = "d" if self.settings.build_type == "Debug" else ""
             library_prefix = "lib" if not self.options.shared else ""
-            self.cpp_info.libs = [library_prefix + "tango" + debug_suffix]
+            tango_library = library_prefix + "tango" + debug_suffix
+            self.cpp_info.libs = [
+                tango_library,
+                "Comctl32", # Need this for InitCommonControls
+            ]
         else:
             self.cpp_info.libs = ["tango"]
         self.cpp_info.includedirs = ["include", "include/tango"]
