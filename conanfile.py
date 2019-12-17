@@ -7,6 +7,12 @@ from conans.errors import ConanException, ConanInvalidConfiguration
 NO_SED_PATCH = "0001-Do-not-use-sed-for-file-enhancements.patch"
 CPPZMQ_INSTALL_PATCH = "fix_cppzmq_install_paths.patch"
 MAKE_PTHREAD_WIN_TRULY_OPTIONAL = "make_pthread_win_truly_optional.patch"
+TANGO_CONFIG_RESILIENT_AGAINST_PREDEFINES = "tango_config_resilient_against_predefines.patch"
+
+PATCHES = [NO_SED_PATCH, CPPZMQ_INSTALL_PATCH,
+           MAKE_PTHREAD_WIN_TRULY_OPTIONAL,
+           TANGO_CONFIG_RESILIENT_AGAINST_PREDEFINES]
+
 
 PTHREADS_WIN32 = "https://github.com/tango-controls/Pthread_WIN32/releases/download/2.9.1/pthreads-win32-2.9.1_{0}.zip"
 
@@ -17,13 +23,13 @@ def replace_prefix_everywhere_in_pc_file(file, prefix):
     tools.replace_in_file(file, old_prefix, prefix)
 
 
-class TangoConan(ConanFile):
-    name = "tango"
+class CppTangoConan(ConanFile):
+    name = "cpptango"
     version = "9.3.3"
     license = "LGPL-3.0"
     author = "Marius Elvert marius.elvert@softwareschneiderei.de"
-    url = "https://github.com/softwareschneiderei/conan-tango"
-    description = "Tango Control System "
+    url = "https://github.com/softwareschneiderei/conan-cpptango"
+    description = "Tango Control System C++ Libraries"
     topics = ("control-system",)
     settings = "os", "compiler", "build_type", "arch"
     options = {
@@ -37,7 +43,7 @@ class TangoConan(ConanFile):
     generators = "cmake"
     file_prefix = "{0}-{1}".format(name, version)
     source_archive = "{0}.tar.gz".format(file_prefix)
-    exports_sources = NO_SED_PATCH, CPPZMQ_INSTALL_PATCH, MAKE_PTHREAD_WIN_TRULY_OPTIONAL
+    exports_sources = PATCHES
     requires = "zlib/1.2.11@conan/stable", "zmq/4.3.1@bincrafters/stable",\
                "cppzmq/4.4.1@bincrafters/stable", "omniorb/4.2.2@None/None"
 
@@ -109,7 +115,7 @@ class TangoConan(ConanFile):
         # conan seems to only support in-source builds right now
         shutil.copytree(source_location, self.build_folder, ignore=shutil.ignore_patterns(".git"), dirs_exist_ok=True)
 
-        for patch in [NO_SED_PATCH, CPPZMQ_INSTALL_PATCH, MAKE_PTHREAD_WIN_TRULY_OPTIONAL]:
+        for patch in PATCHES:
             self.output.info("Applying patch: {0}".format(patch))
             tools.patch(patch_file=os.path.join(self.source_folder, patch))
 
@@ -125,5 +131,10 @@ class TangoConan(ConanFile):
             self.run(command=cmd, cwd=self.build_folder)
 
     def package_info(self):
-        self.cpp_info.libs = ["tango"]
-        self.cpp_info.includedirs = ["include/tango"]
+        if self.settings.os == "Windows":
+            debug_suffix = "d" if self.settings.build_type == "Debug" else ""
+            library_prefix = "lib" if not self.options.shared else ""
+            self.cpp_info.libs = [library_prefix + "tango" + debug_suffix]
+        else:
+            self.cpp_info.libs = ["tango"]
+        self.cpp_info.includedirs = ["include", "include/tango"]
