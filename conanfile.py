@@ -5,6 +5,7 @@ from conans import ConanFile, tools, CMake
 from conans.errors import ConanException, ConanInvalidConfiguration
 
 NO_SED_PATCH = "0001-Do-not-use-sed-for-file-enhancements.patch"
+PTHREADS_WIN32 = "https://github.com/tango-controls/Pthread_WIN32/releases/download/2.9.1/pthreads-win32-2.9.1_{0}.zip"
 
 
 def replace_prefix_everywhere_in_pc_file(file, prefix):
@@ -31,10 +32,27 @@ class TangoConan(ConanFile):
     requires = "zlib/1.2.11@conan/stable", "zmq/4.3.1@bincrafters/stable",\
                "cppzmq/4.4.1@bincrafters/stable", "omniorb/4.2.2@None/None"
 
+    def _download_windows_pthreads(self):
+        if self.settings.arch == "x86_64":
+            arch = "x64"
+        elif self.settings.arch == "x86":
+            arch = "win32"
+        else:
+            raise ConanInvalidConfiguration("Can only build for x86 or x86_64")
+        # VS 2019 is ABI compatible to VS 2017, fortunately
+        visual_studio_version = min(int(str(self.settings.compiler.version)), 15)
+        suffix = "{0}-msvc{1}".format(arch, visual_studio_version)
+        url = PTHREADS_WIN32.format(suffix)
+        self.output.info("Downloading from {0}".format(url))
+        zip_file = "pthreads-win32.zip"
+        tools.download(url, zip_file, overwrite=True)
+        tools.unzip(zip_file, "pthreads-win32")
+        os.unlink(zip_file)
+
     def source(self):
         tools.Git(folder="cppTango")\
             .clone("https://github.com/tango-controls/cppTango.git",
-                   branch="9.3.3", shallow=True)
+                   branch="refs/tags/9.3.3", shallow=True)
         tools.Git(folder="tango-idl")\
             .clone("https://github.com/tango-controls/tango-idl",
                    branch="1e5edb84d966814ad367f2674ac9a5658b6724ac", shallow=True)
@@ -43,20 +61,32 @@ class TangoConan(ConanFile):
         if self.settings.os == "Linux" and tools.os_info.is_linux and self.settings.compiler.libcxx != "libstdc++11":
             raise ConanInvalidConfiguration("Conan needs the setting 'compiler.libcxx' to be 'libstdc++11' on linux")
 
+    def _env_and_vars(self):
+        return {
+            "PTHREAD_WIN": os.path.join(self.build_folder, "pthreads-win32"),
+            "OMNI_BASE": self.deps_cpp_info["omniorb"].rootpath
+        }
+
     def _configured_cmake(self):
         cmake = CMake(self)
-        with tools.environment_append({"OMNI_BASE": self.deps_cpp_info["omniorb"].rootpath}):
+        env_and_vars = self._env_and_vars()
+        with tools.environment_append(env_and_vars):
+            defs = {
+                'IDL_BASE': os.path.join(self.build_folder, "tango-idl"),
+                'ZMQ_BASE': self.deps_cpp_info["zmq"].rootpath,
+                'CPPZMQ_BASE': self.deps_cpp_info["cppzmq"].rootpath,
+                'CMAKE_INSTALL_COMPONENT': "dynamic" if self.options.shared else "static",
+            }
+            defs.update(env_and_vars)
+
             cmake.configure(
                 source_folder=self.build_folder,
-                defs={
-                    'IDL_BASE': os.path.join(self.build_folder, "tango-idl"),
-                    'OMNI_BASE': self.deps_cpp_info["omniorb"].rootpath,
-                    'ZMQ_BASE': self.deps_cpp_info["zmq"].rootpath,
-                    'CPPZMQ_BASE': self.deps_cpp_info["cppzmq"].rootpath,
-                })
+                defs=defs)
         return cmake
 
     def build(self):
+        if self.settings.os == "Windows":
+            self._download_windows_pthreads()
         source_location = os.path.join(self.source_folder, "cppTango")
         idl_location = os.path.join(self.source_folder, "tango-idl")
         os.makedirs("tango-idl/include", exist_ok=True)
@@ -66,13 +96,15 @@ class TangoConan(ConanFile):
         shutil.copytree(source_location, self.build_folder, ignore=shutil.ignore_patterns(".git"), dirs_exist_ok=True)
         # Do not require "sed" with this patch
         tools.patch(patch_file=os.path.join(self.source_folder, NO_SED_PATCH))
-        
+
         target = "tango" if self.options.shared else "tango-static"
         cmake = self._configured_cmake()
         cmake.build(target=target)
 
     def package(self):
-        self._configured_cmake().install()
+        component = "dynamic" if self.options.shared else "static"
+        cmd = "cmake {0} -DCMAKE_INSTALL_COMPONENT={1} -P cmake_install.cmake".format(CMake(self).command_line, component)
+        self.run(command=cmd, cwd=self.build_folder)
 
     def package_info(self):
         self.cpp_info.libs = ["tango", "log4tango", "dl"]
