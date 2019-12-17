@@ -5,6 +5,7 @@ from conans import ConanFile, tools, CMake
 from conans.errors import ConanException, ConanInvalidConfiguration
 
 NO_SED_PATCH = "0001-Do-not-use-sed-for-file-enhancements.patch"
+CPPZMQ_INSTALL_PATCH = "fix_cppzmq_install_paths.patch"
 PTHREADS_WIN32 = "https://github.com/tango-controls/Pthread_WIN32/releases/download/2.9.1/pthreads-win32-2.9.1_{0}.zip"
 
 
@@ -28,7 +29,7 @@ class TangoConan(ConanFile):
     generators = "cmake"
     file_prefix = "{0}-{1}".format(name, version)
     source_archive = "{0}.tar.gz".format(file_prefix)
-    exports_sources = NO_SED_PATCH,
+    exports_sources = NO_SED_PATCH, CPPZMQ_INSTALL_PATCH,
     requires = "zlib/1.2.11@conan/stable", "zmq/4.3.1@bincrafters/stable",\
                "cppzmq/4.4.1@bincrafters/stable", "omniorb/4.2.2@None/None"
 
@@ -63,8 +64,10 @@ class TangoConan(ConanFile):
 
     def _env_and_vars(self):
         return {
-            "PTHREAD_WIN": os.path.join(self.build_folder, "pthreads-win32"),
-            "OMNI_BASE": self.deps_cpp_info["omniorb"].rootpath
+            "PTHREAD_WIN": os.path.join(self.build_folder, "pthreads-win32").replace("\\", "/"),
+            "OMNI_BASE": self.deps_cpp_info["omniorb"].rootpath,
+            'ZMQ_BASE': self.deps_cpp_info["zmq"].rootpath,
+            'CPPZMQ_BASE': self.deps_cpp_info["cppzmq"].rootpath,
         }
 
     def _configured_cmake(self):
@@ -72,9 +75,7 @@ class TangoConan(ConanFile):
         env_and_vars = self._env_and_vars()
         with tools.environment_append(env_and_vars):
             defs = {
-                'IDL_BASE': os.path.join(self.build_folder, "tango-idl"),
-                'ZMQ_BASE': self.deps_cpp_info["zmq"].rootpath,
-                'CPPZMQ_BASE': self.deps_cpp_info["cppzmq"].rootpath,
+                'IDL_BASE': os.path.join(self.build_folder, "tango-idl").replace("\\", "/"),
                 'CMAKE_INSTALL_COMPONENT': "dynamic" if self.options.shared else "static",
             }
             defs.update(env_and_vars)
@@ -94,17 +95,21 @@ class TangoConan(ConanFile):
 
         # conan seems to only support in-source builds right now
         shutil.copytree(source_location, self.build_folder, ignore=shutil.ignore_patterns(".git"), dirs_exist_ok=True)
-        # Do not require "sed" with this patch
-        tools.patch(patch_file=os.path.join(self.source_folder, NO_SED_PATCH))
+
+        for patch in [NO_SED_PATCH, CPPZMQ_INSTALL_PATCH]:
+            self.output.info("Applying patch: {0}".format(patch))
+            tools.patch(patch_file=os.path.join(self.source_folder, patch))
 
         target = "tango" if self.options.shared else "tango-static"
         cmake = self._configured_cmake()
         cmake.build(target=target)
 
     def package(self):
-        component = "dynamic" if self.options.shared else "static"
-        cmd = "cmake {0} -DCMAKE_INSTALL_COMPONENT={1} -P cmake_install.cmake".format(CMake(self).command_line, component)
-        self.run(command=cmd, cwd=self.build_folder)
+        library_component = "dynamic" if self.options.shared else "static"
+        for component in [library_component, "headers", "Unspecified"]:
+            cmd = "cmake {0} -DCMAKE_INSTALL_COMPONENT={1} -P cmake_install.cmake"\
+                .format(CMake(self).command_line, component)
+            self.run(command=cmd, cwd=self.build_folder)
 
     def package_info(self):
         self.cpp_info.libs = ["tango", "log4tango", "dl"]
