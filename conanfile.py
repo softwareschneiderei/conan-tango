@@ -84,9 +84,9 @@ class CppTangoConan(ConanFile):
 
     def _env_and_vars(self):
         return {
-            "OMNI_BASE": self.deps_cpp_info["omniorb"].rootpath,
-            'ZMQ_BASE': self.deps_cpp_info["zmq"].rootpath,
-            'CPPZMQ_BASE': self.deps_cpp_info["cppzmq"].rootpath,
+            "OMNI_BASE": self.deps_cpp_info["omniorb"].rootpath.replace("\\", "/"),
+            'ZMQ_BASE': self.deps_cpp_info["zmq"].rootpath.replace("\\", "/"),
+            'CPPZMQ_BASE': self.deps_cpp_info["cppzmq"].rootpath.replace("\\", "/"),
         }
 
     def _configured_cmake(self):
