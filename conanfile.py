@@ -47,7 +47,7 @@ class CppTangoConan(ConanFile):
     source_archive = "{0}.tar.gz".format(file_prefix)
     exports_sources = PATCHES
     requires = "zlib/1.2.11@conan/stable", "zmq/4.3.1@bincrafters/stable",\
-               "cppzmq/4.4.1@bincrafters/stable", "omniorb/4.2.2@None/None"
+               "cppzmq/4.4.1@bincrafters/stable", "omniorb/4.2.3@softwareschneiderei/stable"
 
     def _download_windows_pthreads(self):
         if self.settings.arch == "x86_64":
@@ -128,8 +128,8 @@ class CppTangoConan(ConanFile):
     def package(self):
         library_component = "dynamic" if self.options.shared else "static"
         for component in [library_component, "headers", "Unspecified"]:
-            cmd = "cmake {0} -DCMAKE_INSTALL_COMPONENT={1} -P cmake_install.cmake"\
-                .format(CMake(self).command_line, component)
+            cmd = "cmake {0} -DCMAKE_INSTALL_COMPONENT={1} -DCMAKE_INSTALL_CONFIG_NAME={2} -P cmake_install.cmake"\
+                .format(CMake(self).command_line, component, self.settings.build_type)
             self.run(command=cmd, cwd=self.build_folder)
 
     def package_info(self):
