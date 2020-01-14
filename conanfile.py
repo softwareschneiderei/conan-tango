@@ -9,9 +9,11 @@ NO_SED_PATCH = "0001-Do-not-use-sed-for-file-enhancements.patch"
 CPPZMQ_INSTALL_PATCH = "fix_cppzmq_install_paths.patch"
 MAKE_PTHREAD_WIN_TRULY_OPTIONAL = "make_pthread_win_truly_optional.patch"
 TANGO_CONFIG_RESILIENT_AGAINST_PREDEFINES = "tango_config_resilient_against_predefines.patch"
+DO_NO_INSTALL_DEPENDENCIES = "do_not_install_dependencies.patch"
 
 PATCHES = [DISABLE_RUNTIME_LIBRARY_OVERRIDES,
            NO_SED_PATCH, CPPZMQ_INSTALL_PATCH,
+           DO_NO_INSTALL_DEPENDENCIES,
            MAKE_PTHREAD_WIN_TRULY_OPTIONAL,
            TANGO_CONFIG_RESILIENT_AGAINST_PREDEFINES]
 
@@ -99,6 +101,8 @@ class CppTangoConan(ConanFile):
             }
             if self.settings.os == "Windows" and self.options.pthread_windows:
                 defs["PTHREAD_WIN"] = os.path.join(self.build_folder, "pthreads-win32").replace("\\", "/")
+            if self.settings.os == "Windows":
+                defs["CMAKE_DEBUG_POSTFIX"] = "d"
             defs.update(env_and_vars)
 
             cmake.configure(
