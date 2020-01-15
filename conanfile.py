@@ -27,6 +27,17 @@ def replace_prefix_everywhere_in_pc_file(file, prefix):
     tools.replace_in_file(file, old_prefix, prefix)
 
 
+# From https://stackoverflow.com/questions/1868714/how-do-i-copy-an-entire-directory-of-files-into-an-existing-directory-using-pyth/31039095
+def copytree(src, dst, symlinks=False, ignore=None):
+    for item in os.listdir(src):
+        s = os.path.join(src, item)
+        d = os.path.join(dst, item)
+        if os.path.isdir(s):
+            shutil.copytree(s, d, symlinks, ignore)
+        else:
+            shutil.copy2(s, d)
+
+
 class CppTangoConan(ConanFile):
     name = "cpptango"
     version = "9.3.3"
@@ -72,9 +83,10 @@ class CppTangoConan(ConanFile):
         tools.Git(folder="cppTango")\
             .clone("https://github.com/tango-controls/cppTango.git",
                    branch="refs/tags/9.3.3", shallow=True)
-        tools.Git(folder="tango-idl")\
-            .clone("https://github.com/tango-controls/tango-idl",
-                   branch="1e5edb84d966814ad367f2674ac9a5658b6724ac", shallow=True)
+
+        idl = tools.Git(folder="tango-idl")
+        idl.clone("https://github.com/tango-controls/tango-idl")
+        idl.checkout("1e5edb84d966814ad367f2674ac9a5658b6724ac")
 
     def configure(self):
         if self.settings.os == "Linux" and tools.os_info.is_linux and self.settings.compiler.libcxx != "libstdc++11":
@@ -118,8 +130,8 @@ class CppTangoConan(ConanFile):
         os.makedirs("tango-idl/include", exist_ok=True)
         shutil.copy(os.path.join(idl_location, "tango.idl"), os.path.join(self.build_folder, "tango-idl/include/"))
 
-        # conan seems to only support in-source builds right now
-        shutil.copytree(source_location, self.build_folder, ignore=shutil.ignore_patterns(".git"), dirs_exist_ok=True)
+        # tango seems to only support in-source builds right now
+        copytree(source_location, self.build_folder, ignore=shutil.ignore_patterns(".git"))
 
         for patch in PATCHES:
             self.output.info("Applying patch: {0}".format(patch))
