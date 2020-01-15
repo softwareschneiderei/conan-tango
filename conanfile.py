@@ -122,20 +122,34 @@ class CppTangoConan(ConanFile):
                 defs=defs)
         return cmake
 
+    def _cmake_comment_out(self, file, content):
+        tools.replace_in_file(file, content, "# " + content)
+
     def build(self):
         if self.settings.os == "Windows" and self.options.pthread_windows:
             self._download_windows_pthreads()
+
         source_location = os.path.join(self.source_folder, "cppTango")
         idl_location = os.path.join(self.source_folder, "tango-idl")
+
         os.makedirs("tango-idl/include", exist_ok=True)
         shutil.copy(os.path.join(idl_location, "tango.idl"), os.path.join(self.build_folder, "tango-idl/include/"))
 
         # tango seems to only support in-source builds right now
         copytree(source_location, self.build_folder, ignore=shutil.ignore_patterns(".git"))
 
+        # Apply all patches
         for patch in PATCHES:
             self.output.info("Applying patch: {0}".format(patch))
             tools.patch(patch_file=os.path.join(self.source_folder, patch))
+
+        # Disable installation of the wrong variant (shared/static)
+        if self.settings.os == "Linux":
+            cmake_linux = os.path.join(self.build_folder, "configure/cmake_linux.cmake")
+            if not self.options.shared:
+                self._cmake_comment_out(cmake_linux, 'install(TARGETS tango LIBRARY DESTINATION "${CMAKE_INSTALL_FULL_LIBDIR}")')
+            else:
+                self._cmake_comment_out(cmake_linux, 'install(TARGETS tango-static ARCHIVE DESTINATION "${CMAKE_INSTALL_FULL_LIBDIR}")')
 
         target = "tango" if self.options.shared else "tango-static"
         cmake = self._configured_cmake()
