@@ -172,5 +172,5 @@ class CppTangoConan(ConanFile):
                 "Comctl32", # Need this for InitCommonControls
             ]
         else:
-            self.cpp_info.libs = ["tango"]
+            self.cpp_info.libs = ["tango", "dl"]
         self.cpp_info.includedirs = ["include", "include/tango"]
