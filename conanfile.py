@@ -74,7 +74,7 @@ class CppTangoConan(ConanFile):
     file_prefix = "{0}-{1}".format(name, version)
     source_archive = "{0}.tar.gz".format(file_prefix)
     exports_sources = PATCHES
-    requires = "zlib/1.2.11@conan/stable", "zmq/4.3.1@bincrafters/stable",\
+    requires = "zlib/1.2.11@conan/stable", "zmq/4.3.2@bincrafters/stable",\
                "cppzmq/4.4.1@bincrafters/stable", "omniorb/4.2.3@softwareschneiderei/stable"
 
     def _download_windows_pthreads(self):
