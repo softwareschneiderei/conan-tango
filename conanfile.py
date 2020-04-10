@@ -10,15 +10,30 @@ CPPZMQ_INSTALL_PATCH = "fix_cppzmq_install_paths.patch"
 MAKE_PTHREAD_WIN_TRULY_OPTIONAL = "make_pthread_win_truly_optional.patch"
 TANGO_CONFIG_RESILIENT_AGAINST_PREDEFINES = "tango_config_resilient_against_predefines.patch"
 DO_NO_INSTALL_DEPENDENCIES = "do_not_install_dependencies.patch"
+FIX_LIBRARY_COMPONENTS = "fix_library_components.patch"
 
 PATCHES = [DISABLE_RUNTIME_LIBRARY_OVERRIDES,
            NO_SED_PATCH, CPPZMQ_INSTALL_PATCH,
            DO_NO_INSTALL_DEPENDENCIES,
            MAKE_PTHREAD_WIN_TRULY_OPTIONAL,
-           TANGO_CONFIG_RESILIENT_AGAINST_PREDEFINES]
+           TANGO_CONFIG_RESILIENT_AGAINST_PREDEFINES,
+           FIX_LIBRARY_COMPONENTS]
 
 
 PTHREADS_WIN32 = "https://github.com/tango-controls/Pthread_WIN32/releases/download/2.9.1/pthreads-win32-2.9.1_{0}.zip"
+
+
+def prepend_file_with(file_path, added):
+    lines = []
+    with open(file_path) as file:
+        lines = file.readlines()
+
+    # Prepend, if we have not already
+    if len(lines) >= len(added) and lines[:len(added)] != added:
+        lines = added + lines
+
+    with open(file_path, "w") as file:
+        file.writelines(lines)
 
 
 def replace_prefix_everywhere_in_pc_file(file, prefix):
@@ -115,6 +130,7 @@ class CppTangoConan(ConanFile):
                 defs["PTHREAD_WIN"] = os.path.join(self.build_folder, "pthreads-win32").replace("\\", "/")
             if self.settings.os == "Windows":
                 defs["CMAKE_DEBUG_POSTFIX"] = "d"
+                defs["CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS"] = "ON" if self.options.shared else "OFF"
             defs.update(env_and_vars)
 
             cmake.configure(
@@ -150,6 +166,21 @@ class CppTangoConan(ConanFile):
                 self._cmake_comment_out(cmake_linux, 'install(TARGETS tango LIBRARY DESTINATION "${CMAKE_INSTALL_FULL_LIBDIR}")')
             else:
                 self._cmake_comment_out(cmake_linux, 'install(TARGETS tango-static ARCHIVE DESTINATION "${CMAKE_INSTALL_FULL_LIBDIR}")')
+        
+        # Replace library dependencies by what conan provides
+        if self.settings.os == "Windows":
+            new_dependency_settings = [
+                'set(OMNIORB_PKG_LIBRARIES {0})\n'.format(';'.join(self.deps_cpp_info["omniorb"].libs)),
+                'set(ZMQ_PKG_LIBRARIES {0})\n'.format(';'.join(self.deps_cpp_info["zmq"].libs)),
+                'set(PTHREAD_WIN_PKG_LIBRARIES "")\n',
+                'link_directories(${ZMQ_BASE}/lib)\n',
+            ]
+            prepend_file_with(os.path.join(self.build_folder, "configure/CMakeLists.txt"), new_dependency_settings)
+            cmake_windows = os.path.join(self.build_folder, "configure/cmake_win.cmake")
+            dependency_variables = ["OMNIORB_PKG_LIBRARIES", "ZMQ_PKG_LIBRARIES", "PTHREAD_WIN_PKG_LIBRARIES"]
+            for dependency_suffix in ["DYN", "STA"]:
+                for variable in dependency_variables:
+                    tools.replace_in_file(cmake_windows, '${{{1}_{0}}}'.format(dependency_suffix, variable), '${{{0}}}'.format(variable))
 
         target = "tango" if self.options.shared else "tango-static"
         cmake = self._configured_cmake()
