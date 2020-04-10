@@ -106,6 +106,9 @@ class CppTangoConan(ConanFile):
     def configure(self):
         if self.settings.os == "Linux" and tools.os_info.is_linux and self.settings.compiler.libcxx != "libstdc++11":
             raise ConanInvalidConfiguration("Conan needs the setting 'compiler.libcxx' to be 'libstdc++11' on linux")
+        
+        self.options["omniorb"].shared = self.options.shared
+        self.options["zmq"].shared = self.options.shared
 
     def config_options(self):
         if self.settings.os != "Windows":
