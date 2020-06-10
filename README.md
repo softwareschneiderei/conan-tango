@@ -1,5 +1,7 @@
 # conan-cpptango
 
+[![Build status](https://ci.appveyor.com/api/projects/status/fqphnawa29a7prv5/branch/master?svg=true)](https://ci.appveyor.com/project/softwareschneiderei/conan-cpptango/branch/master)
+
 Conan recipe for Tango Control Systems
 
 To use this, add our remote like this:
