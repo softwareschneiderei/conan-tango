@@ -182,11 +182,15 @@ class CppTangoConan(ConanFile):
         cmake.build(target=target)
 
     def package(self):
-        library_component = "dynamic" if self.options.shared else "static"
-        for component in [library_component, "headers", "Unspecified"]:
-            cmd = "cmake {0} -DCMAKE_INSTALL_COMPONENT={1} -DCMAKE_INSTALL_CONFIG_NAME={2} -P cmake_install.cmake"\
-                .format(CMake(self).command_line, component, self.settings.build_type)
-            self.run(command=cmd, cwd=self.build_folder)
+        if self.settings.os == "Windows":
+            cmake = CMake(self)
+            cmake.install()
+        else:
+            library_component = "dynamic" if self.options.shared else "static"
+            for component in [library_component, "headers", "Unspecified"]:
+                cmd = "cmake {0} -DCMAKE_INSTALL_COMPONENT={1} -DCMAKE_INSTALL_CONFIG_NAME={2} -P cmake_install.cmake"\
+                    .format(CMake(self).command_line, component, self.settings.build_type)
+                self.run(command=cmd, cwd=self.build_folder)
 
     def package_info(self):
         if self.settings.os == "Windows":
