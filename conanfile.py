@@ -4,20 +4,8 @@ from shutil import copyfile
 from conans import ConanFile, tools, CMake
 from conans.errors import ConanException, ConanInvalidConfiguration
 
-DISABLE_RUNTIME_LIBRARY_OVERRIDES = "disable_runtime_library_overrides.patch"
-NO_SED_PATCH = "0001-Do-not-use-sed-for-file-enhancements.patch"
-CPPZMQ_INSTALL_PATCH = "fix_cppzmq_install_paths.patch"
-MAKE_PTHREAD_WIN_TRULY_OPTIONAL = "make_pthread_win_truly_optional.patch"
-TANGO_CONFIG_RESILIENT_AGAINST_PREDEFINES = "tango_config_resilient_against_predefines.patch"
-DO_NO_INSTALL_DEPENDENCIES = "do_not_install_dependencies.patch"
-FIX_LIBRARY_COMPONENTS = "fix_library_components.patch"
 
-PATCHES = [DISABLE_RUNTIME_LIBRARY_OVERRIDES,
-           NO_SED_PATCH, CPPZMQ_INSTALL_PATCH,
-           DO_NO_INSTALL_DEPENDENCIES,
-           MAKE_PTHREAD_WIN_TRULY_OPTIONAL,
-           TANGO_CONFIG_RESILIENT_AGAINST_PREDEFINES,
-           FIX_LIBRARY_COMPONENTS]
+PATCHES = []
 
 
 PTHREADS_WIN32 = "https://github.com/tango-controls/Pthread_WIN32/releases/download/2.9.1/pthreads-win32-2.9.1_{0}.zip"
@@ -55,7 +43,7 @@ def copytree(src, dst, symlinks=False, ignore=None):
 
 class CppTangoConan(ConanFile):
     name = "cpptango"
-    version = "9.3.3"
+    version = "9.4.x"
     license = "LGPL-3.0"
     author = "Marius Elvert marius.elvert@softwareschneiderei.de"
     url = "https://github.com/softwareschneiderei/conan-cpptango"
@@ -97,7 +85,7 @@ class CppTangoConan(ConanFile):
     def source(self):
         tools.Git(folder="cppTango")\
             .clone("https://github.com/tango-controls/cppTango.git",
-                   branch="refs/tags/9.3.3", shallow=True)
+                   branch="tango-9-lts", shallow=True)
 
         idl = tools.Git(folder="tango-idl")
         idl.clone("https://github.com/tango-controls/tango-idl")
@@ -126,8 +114,11 @@ class CppTangoConan(ConanFile):
         env_and_vars = self._env_and_vars()
         with tools.environment_append(env_and_vars):
             defs = {
+                'TANGO_INSTALL_DEPENDENCIES': False,
                 'IDL_BASE': os.path.join(self.build_folder, "tango-idl").replace("\\", "/"),
                 'CMAKE_INSTALL_COMPONENT': "dynamic" if self.options.shared else "static",
+                'TANGO_BUILD_SHARED': self.options.shared,
+                'BUILD_TESTING': False,
             }
             if self.settings.os == "Windows" and self.options.pthread_windows:
                 defs["PTHREAD_WIN"] = os.path.join(self.build_folder, "pthreads-win32").replace("\\", "/")
@@ -184,6 +175,7 @@ class CppTangoConan(ConanFile):
             for dependency_suffix in ["DYN", "STA"]:
                 for variable in dependency_variables:
                     tools.replace_in_file(cmake_windows, '${{{1}_{0}}}'.format(dependency_suffix, variable), '${{{0}}}'.format(variable))
+            tools.replace_in_file(os.path.join(self.build_folder, "cppapi/server/idl/CMakeLists.txt"), '    install(FILES "${CMAKE_CURRENT_BINARY_DIR}/tango.h" DESTINATION include)', '    install(FILES "${CMAKE_CURRENT_BINARY_DIR}/tango.h" DESTINATION include/tango/idl)')
 
         target = "tango" if self.options.shared else "tango-static"
         cmake = self._configured_cmake()

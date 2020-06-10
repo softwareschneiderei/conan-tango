@@ -1,4 +1,5 @@
 #include <tango.h>
+#include <dserver.h>
 
 int main()
 {
@@ -6,7 +7,7 @@ int main()
     if (never != 0)
     {
         // Just link, but never run
-        Tango::DServer DServer(nullptr, nullptr, nullptr, Tango::ON, nullptr);
+        Tango::DServer instance(nullptr, nullptr, nullptr, Tango::ON, nullptr);
     }
     return 0;
 }
