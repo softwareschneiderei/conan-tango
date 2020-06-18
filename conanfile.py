@@ -175,7 +175,6 @@ class CppTangoConan(ConanFile):
             for dependency_suffix in ["DYN", "STA"]:
                 for variable in dependency_variables:
                     tools.replace_in_file(cmake_windows, '${{{1}_{0}}}'.format(dependency_suffix, variable), '${{{0}}}'.format(variable))
-            tools.replace_in_file(os.path.join(self.build_folder, "cppapi/server/idl/CMakeLists.txt"), '    install(FILES "${CMAKE_CURRENT_BINARY_DIR}/tango.h" DESTINATION include)', '    install(FILES "${CMAKE_CURRENT_BINARY_DIR}/tango.h" DESTINATION include/tango/idl)')
 
         target = "tango" if self.options.shared else "tango-static"
         cmake = self._configured_cmake()
