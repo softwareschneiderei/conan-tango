@@ -74,8 +74,8 @@ class CppTangoConan(ConanFile):
     file_prefix = "{0}-{1}".format(name, version)
     source_archive = "{0}.tar.gz".format(file_prefix)
     exports_sources = PATCHES
-    requires = "zlib/1.2.11@conan/stable", "zmq/4.3.2@bincrafters/stable",\
-               "cppzmq/4.4.1@bincrafters/stable", "omniorb/4.2.3@softwareschneiderei/stable"
+    requires = "zlib/1.2.11", "zeromq/4.3.4",\
+               "cppzmq/4.5.0", "omniorb/4.2.3@softwareschneiderei/stable"
 
     def _download_windows_pthreads(self):
         if self.settings.arch == "x86_64":
@@ -108,7 +108,7 @@ class CppTangoConan(ConanFile):
             raise ConanInvalidConfiguration("Conan needs the setting 'compiler.libcxx' to be 'libstdc++11' on linux")
         
         self.options["omniorb"].shared = self.options.shared
-        self.options["zmq"].shared = self.options.shared
+        self.options["zeromq"].shared = self.options.shared
 
     def config_options(self):
         if self.settings.os != "Windows":
@@ -117,7 +117,7 @@ class CppTangoConan(ConanFile):
     def _env_and_vars(self):
         return {
             "OMNI_BASE": self.deps_cpp_info["omniorb"].rootpath.replace("\\", "/"),
-            'ZMQ_BASE': self.deps_cpp_info["zmq"].rootpath.replace("\\", "/"),
+            'ZMQ_BASE': self.deps_cpp_info["zeromq"].rootpath.replace("\\", "/"),
             'CPPZMQ_BASE': self.deps_cpp_info["cppzmq"].rootpath.replace("\\", "/"),
         }
 
@@ -174,7 +174,7 @@ class CppTangoConan(ConanFile):
         if self.settings.os == "Windows":
             new_dependency_settings = [
                 'set(OMNIORB_PKG_LIBRARIES {0})\n'.format(';'.join(self.deps_cpp_info["omniorb"].libs)),
-                'set(ZMQ_PKG_LIBRARIES {0})\n'.format(';'.join(self.deps_cpp_info["zmq"].libs)),
+                'set(ZMQ_PKG_LIBRARIES {0})\n'.format(';'.join(self.deps_cpp_info["zeromq"].libs)),
                 'set(PTHREAD_WIN_PKG_LIBRARIES "")\n',
                 'link_directories(${ZMQ_BASE}/lib)\n',
             ]
