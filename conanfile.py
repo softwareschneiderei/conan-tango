@@ -4,7 +4,7 @@ from conan import ConanFile, tools
 from conan.tools.env import Environment
 from conan.tools.cmake import CMake, CMakeToolchain, cmake_layout
 from conan.tools.scm import Git
-from conan.tools.files import replace_in_file, download, unzip, patch
+from conan.tools.files import replace_in_file, download, unzip, patch, copy
 from conan.errors import ConanException, ConanInvalidConfiguration
 
 DISABLE_RUNTIME_LIBRARY_OVERRIDES = "disable_runtime_library_overrides.patch"
@@ -50,7 +50,7 @@ def copytree(src, dst, symlinks=False, ignore=None):
         s = os.path.join(src, item)
         d = os.path.join(dst, item)
         if os.path.isdir(s):
-            shutil.copytree(s, d, symlinks, ignore)
+            shutil.copytree(s, d, symlinks, ignore, dirs_exist_ok=True)
         else:
             shutil.copy2(s, d)
 
@@ -74,7 +74,6 @@ class CppTangoConan(ConanFile):
     }
     file_prefix = "{0}-{1}".format(name, version)
     source_archive = "{0}.tar.gz".format(file_prefix)
-    exports_sources = PATCHES
     requires = "zlib/1.2.11", "zeromq/4.3.4", \
                "cppzmq/4.5.0", "omniorb/4.2.3"
 
@@ -95,10 +94,17 @@ class CppTangoConan(ConanFile):
         unzip(self, zip_file, "pthreads-win32")
         os.unlink(zip_file)
 
+    def layout(self):
+        cmake_layout(self, src_folder="src")
+
     def source(self):
         os.makedirs("cppTango", exist_ok=True)
         cpp_tango = Git(self, folder="cppTango")
         cpp_tango.fetch_commit("https://github.com/tango-controls/cppTango.git", "refs/tags/9.3.3")
+
+        # Move patches to the cppTango folder
+        for patch_file in PATCHES:
+            copy(self, patch_file, src=self.recipe_folder, dst=self.source_folder)
 
         os.makedirs("tango-idl", exist_ok=True)
         idl = Git(self, folder="tango-idl")
@@ -178,7 +184,8 @@ class CppTangoConan(ConanFile):
         # Apply all patches
         for patch_file in PATCHES:
             self.output.info(f"Applying patch: {patch_file}")
-            patch(self, patch_file=os.path.join(self.source_folder, patch_file))
+            copy(self, patch_file, src=self.source_folder, dst=self.build_folder)
+            patch(self, patch_file=os.path.join(self.build_folder, patch_file), base_path=self.build_folder)
 
         # Make sure CMakeLists.txt preamble is correct
         replace_in_file(self, "CMakeLists.txt", "cmake_minimum_required(VERSION 2.8.12)",
@@ -213,10 +220,11 @@ class CppTangoConan(ConanFile):
         cmake.build(target=target)
 
     def package(self):
+        self.output.info(f"Build folder: {self.build_folder}")
         library_component = "dynamic" if self.options.shared else "static"
         for component in [library_component, "headers", "Unspecified"]:
-            cmd = "cmake {0} -DCMAKE_INSTALL_COMPONENT={1} -DCMAKE_INSTALL_CONFIG_NAME={2} -P cmake_install.cmake" \
-                .format(CMake(self).command_line, component, self.settings.build_type)
+            script = os.path.join(self.build_folder, "cmake_install.cmake")
+            cmd = f"cmake -DCMAKE_INSTALL_COMPONENT={component} -DCMAKE_INSTALL_CONFIG_NAME={self.settings.build_type} -P {script}"
             self.run(command=cmd, cwd=self.build_folder)
 
     def package_info(self):
