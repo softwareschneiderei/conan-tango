@@ -44,17 +44,6 @@ def replace_prefix_everywhere_in_pc_file(file, prefix):
     tools.replace_in_file(file, old_prefix, prefix)
 
 
-# From https://stackoverflow.com/questions/1868714/how-do-i-copy-an-entire-directory-of-files-into-an-existing-directory-using-pyth/31039095
-def copytree(src, dst, symlinks=False, ignore=None):
-    for item in os.listdir(src):
-        s = os.path.join(src, item)
-        d = os.path.join(dst, item)
-        if os.path.isdir(s):
-            shutil.copytree(s, d, symlinks, ignore, dirs_exist_ok=True)
-        else:
-            shutil.copy2(s, d)
-
-
 class CppTangoConan(ConanFile):
     name = "cpptango"
     version = "9.3.3"
@@ -179,7 +168,7 @@ class CppTangoConan(ConanFile):
         shutil.copy(os.path.join(idl_location, "tango.idl"), os.path.join(self.build_folder, "tango-idl/include/"))
 
         # tango seems to only support in-source builds right now
-        copytree(source_location, self.build_folder, ignore=shutil.ignore_patterns(".git"))
+        shutil.copytree(source_location, self.build_folder, ignore=shutil.ignore_patterns(".git"), dirs_exist_ok=True)
 
         # Apply all patches
         for patch_file in PATCHES:
@@ -191,6 +180,16 @@ class CppTangoConan(ConanFile):
         replace_in_file(self, "CMakeLists.txt", "cmake_minimum_required(VERSION 2.8.12)",
                         '''cmake_minimum_required(VERSION 3.15)
                         project(cppTango)''')
+
+        # cppTango is using the CMAKE_INSTALL_FULL_<> variables from GNUInstallDirs
+        # Replace them by their CMAKE_INSTALL_<> counterparts so CMAKE_INSTALL_PREFIX has an effect later
+        full_install_rule_files = [
+            "configure/CMakeLists.txt", "configure/cmake_linux.cmake", "cppapi/client/CMakeLists.txt",
+            "cppapi/client/helpers/CMakeLists.txt", "cppapi/server/CMakeLists.txt", "cppapi/server/idl/CMakeLists.txt",
+            "log4tango/include/log4tango/CMakeLists.txt", "log4tango/include/log4tango/threading/CMakeLists.txt"
+        ]
+        for file in full_install_rule_files:
+            replace_in_file(self, file, "CMAKE_INSTALL_FULL_", "CMAKE_INSTALL_")
 
         # Disable installation of the wrong variant (shared/static)
         if self.settings.os == "Linux":
@@ -221,21 +220,22 @@ class CppTangoConan(ConanFile):
 
     def package(self):
         self.output.info(f"Build folder: {self.build_folder}")
+        prefix = self.package_folder
         library_component = "dynamic" if self.options.shared else "static"
         for component in [library_component, "headers", "Unspecified"]:
             script = os.path.join(self.build_folder, "cmake_install.cmake")
-            cmd = f"cmake -DCMAKE_INSTALL_COMPONENT={component} -DCMAKE_INSTALL_CONFIG_NAME={self.settings.build_type} -P {script}"
-            self.run(command=cmd, cwd=self.build_folder)
+            cmd = f"cmake -DCMAKE_INSTALL_PREFIX={prefix} -DCMAKE_INSTALL_COMPONENT={component} -DCMAKE_INSTALL_CONFIG_NAME={self.settings.build_type} -P {script}"
+            self.run(command=cmd, cwd=self.package_folder)
 
     def package_info(self):
         if self.settings.os == "Windows":
             debug_suffix = "d" if self.settings.build_type == "Debug" else ""
             library_prefix = "lib" if not self.options.shared else ""
             tango_library = library_prefix + "tango" + debug_suffix
-            self.cpp_info.libs = [
-                tango_library,
-                "Comctl32",  # Need this for InitCommonControls
-            ]
+            self.cpp_info.libs = [tango_library]
+            # Need this for InitCommonControls
+            self.cpp_info.system_libs = ["Comctl32"]
         else:
-            self.cpp_info.libs = ["tango", "dl"]
+            self.cpp_info.libs = ["tango"]
+            self.cpp_info.system_libs = ["dl"]
         self.cpp_info.includedirs = ["include", "include/tango"]
