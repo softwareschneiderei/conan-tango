@@ -38,12 +38,6 @@ def prepend_file_with(file_path, added):
         file.writelines(lines)
 
 
-def replace_prefix_everywhere_in_pc_file(file, prefix):
-    pkg_config = tools.PkgConfig(file)
-    old_prefix = pkg_config.variables["prefix"]
-    tools.replace_in_file(file, old_prefix, prefix)
-
-
 class CppTangoConan(ConanFile):
     name = "cpptango"
     version = "9.3.3"
