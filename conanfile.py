@@ -1,6 +1,7 @@
 import os
 import shutil
-from conan import ConanFile, tools
+from os.path import join
+from conan import ConanFile
 from conan.tools.env import Environment
 from conan.tools.cmake import CMake, CMakeToolchain, cmake_layout
 from conan.tools.scm import Git
@@ -97,11 +98,11 @@ class CppTangoConan(ConanFile):
         env_and_vars = self._env_and_vars()
         cmake = CMakeToolchain(self)
         defs = {
-            'IDL_BASE': os.path.join(self.build_folder, "tango-idl").replace("\\", "/"),
+            'IDL_BASE': join(self.build_folder, "tango-idl").replace("\\", "/"),
             'CMAKE_INSTALL_COMPONENT': "dynamic" if self.options.shared else "static",
         }
         if self.settings.os == "Windows" and self.options.pthread_windows:
-            defs["PTHREAD_WIN"] = os.path.join(self.build_folder, "pthreads-win32").replace("\\", "/")
+            defs["PTHREAD_WIN"] = join(self.build_folder, "pthreads-win32").replace("\\", "/")
         if self.settings.os == "Windows":
             defs["CMAKE_DEBUG_POSTFIX"] = "d"
             defs["CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS"] = "ON" if self.options.shared else "OFF"
@@ -123,7 +124,7 @@ class CppTangoConan(ConanFile):
         envvars.save_script("setenv")
 
     def configure(self):
-        if self.settings.os == "Linux" and tools.os_info.is_linux and self.settings.compiler.libcxx != "libstdc++11":
+        if self.settings.os == "Linux" and self.settings.compiler.libcxx != "libstdc++11":
             raise ConanInvalidConfiguration("Conan needs the setting 'compiler.libcxx' to be 'libstdc++11' on linux")
 
         if self.settings.os == "Windows" and self.settings.compiler == "msvc" and self.settings.compiler.cppstd != 14:
@@ -155,11 +156,11 @@ class CppTangoConan(ConanFile):
         if self.settings.os == "Windows" and self.options.pthread_windows:
             self._download_windows_pthreads()
 
-        source_location = os.path.join(self.source_folder, "cppTango")
-        idl_location = os.path.join(self.source_folder, "tango-idl")
+        source_location = join(self.source_folder, "cppTango")
+        idl_location = join(self.source_folder, "tango-idl")
 
         os.makedirs("tango-idl/include", exist_ok=True)
-        shutil.copy(os.path.join(idl_location, "tango.idl"), os.path.join(self.build_folder, "tango-idl/include/"))
+        shutil.copy(join(idl_location, "tango.idl"), join(self.build_folder, "tango-idl/include/"))
 
         # tango seems to only support in-source builds right now
         shutil.copytree(source_location, self.build_folder, ignore=shutil.ignore_patterns(".git"), dirs_exist_ok=True)
@@ -168,12 +169,13 @@ class CppTangoConan(ConanFile):
         for patch_file in PATCHES:
             self.output.info(f"Applying patch: {patch_file}")
             copy(self, patch_file, src=self.source_folder, dst=self.build_folder)
-            patch(self, patch_file=os.path.join(self.build_folder, patch_file), base_path=self.build_folder)
+            patch(self, patch_file=join(self.build_folder, patch_file), base_path=self.build_folder)
 
         # Make sure CMakeLists.txt preamble is correct
         replace_in_file(self, "CMakeLists.txt", "cmake_minimum_required(VERSION 2.8.12)",
-                        '''cmake_minimum_required(VERSION 3.15)
-                        project(cppTango)''')
+                        'cmake_minimum_required(VERSION 3.15)\n' +
+                        'project(cppTango)\n\n' +
+                        'find_package(Threads REQUIRED)')
 
         # cppTango is using the CMAKE_INSTALL_FULL_<> variables from GNUInstallDirs
         # Replace them by their CMAKE_INSTALL_<> counterparts so CMAKE_INSTALL_PREFIX has an effect later
@@ -185,14 +187,30 @@ class CppTangoConan(ConanFile):
         for file in full_install_rule_files:
             replace_in_file(self, file, "CMAKE_INSTALL_FULL_", "CMAKE_INSTALL_")
 
-        # Disable installation of the wrong variant (shared/static)
         if self.settings.os == "Linux":
-            cmake_linux = os.path.join(self.build_folder, "configure/cmake_linux.cmake")
+            # Disable tests since they do not work with python 3 (they need python 2)
+            # Only needed on linux, since they are disabled for windows anyways
+            # However, the test suite normally calls find_package for Threads, which is required for the build
+            replace_in_file(self, join(self.build_folder, "CMakeLists.txt"),
+                            search='add_subdirectory("cpp_test_suite")', replace='')
+
+            # ...so we add that at the top of the file
+            replace_in_file(self, "CMakeLists.txt", search="project(cppTango)",
+                            replace='project(cppTango)\n\n' +
+                            'find_package(Threads REQUIRED)')
+
+            # ...and make sure the test whether that worked is correct
+            replace_in_file(self, join(self.build_folder, "log4tango/config/config.cmake"),
+                            search="if(CMAKE_THREAD_LIBS_INIT)",
+                            replace="if(Threads_FOUND)")
+
+            # Disable installation of the wrong variant (shared/static)
+            cmake_linux = join(self.build_folder, "configure/cmake_linux.cmake")
             if not self.options.shared:
-                rule = 'install(TARGETS tango LIBRARY DESTINATION "${CMAKE_INSTALL_FULL_LIBDIR}")'
+                rule = 'install(TARGETS tango LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}")'
                 self._cmake_comment_out(cmake_linux, rule)
             else:
-                rule = 'install(TARGETS tango-static ARCHIVE DESTINATION "${CMAKE_INSTALL_FULL_LIBDIR}")'
+                rule = 'install(TARGETS tango-static ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}")'
                 self._cmake_comment_out(cmake_linux, rule)
 
         # Replace library dependencies by what conan provides
@@ -200,8 +218,8 @@ class CppTangoConan(ConanFile):
             preamble = [
                 'link_directories(${ZMQ_BASE}/lib)\n',
             ]
-            prepend_file_with(os.path.join(self.build_folder, "configure/CMakeLists.txt"), preamble)
-            cmake_windows = os.path.join(self.build_folder, "configure/cmake_win.cmake")
+            prepend_file_with(join(self.build_folder, "configure/CMakeLists.txt"), preamble)
+            cmake_windows = join(self.build_folder, "configure/cmake_win.cmake")
             dependency_variables = ["OMNIORB_PKG_LIBRARIES", "ZMQ_PKG_LIBRARIES", "PTHREAD_WIN_PKG_LIBRARIES"]
             for dependency_suffix in ["DYN", "STA"]:
                 for variable in dependency_variables:
@@ -217,7 +235,7 @@ class CppTangoConan(ConanFile):
         prefix = self.package_folder
         library_component = "dynamic" if self.options.shared else "static"
         for component in [library_component, "headers", "Unspecified"]:
-            script = os.path.join(self.build_folder, "cmake_install.cmake")
+            script = join(self.build_folder, "cmake_install.cmake")
             cmd = f"cmake -DCMAKE_INSTALL_PREFIX={prefix} -DCMAKE_INSTALL_COMPONENT={component} -DCMAKE_INSTALL_CONFIG_NAME={self.settings.build_type} -P {script}"
             self.run(command=cmd, cwd=self.package_folder)
 
