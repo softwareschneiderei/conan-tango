@@ -58,8 +58,6 @@ class CppTangoConan(ConanFile):
     }
     file_prefix = "{0}-{1}".format(name, version)
     source_archive = "{0}.tar.gz".format(file_prefix)
-    requires = "zlib/1.2.11", "zeromq/4.3.4", \
-               "cppzmq/4.5.0", "omniorb/4.2.3"
 
     def _download_windows_pthreads(self):
         if self.settings.arch == "x86_64":
@@ -77,6 +75,12 @@ class CppTangoConan(ConanFile):
         download(self, url, zip_file)
         unzip(self, zip_file, "pthreads-win32")
         os.unlink(zip_file)
+
+    def requirements(self):
+        self.requires("zlib/1.2.11")
+        self.requires("zeromq/4.3.4")
+        self.requires("cppzmq/4.5.0", transitive_headers=True)
+        self.requires("omniorb/4.2.3", transitive_headers=True)
 
     def layout(self):
         cmake_layout(self, src_folder="src")
