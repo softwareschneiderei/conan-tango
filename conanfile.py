@@ -41,7 +41,7 @@ def prepend_file_with(file_path, added):
 
 class CppTangoConan(ConanFile):
     name = "cpptango"
-    version = "9.3.3"
+    version = "9.3.6"
     license = "LGPL-3.0"
     author = "Marius Elvert marius.elvert@softwareschneiderei.de"
     url = "https://github.com/softwareschneiderei/conan-cpptango"
@@ -88,15 +88,15 @@ class CppTangoConan(ConanFile):
     def source(self):
         os.makedirs("cppTango", exist_ok=True)
         cpp_tango = Git(self, folder="cppTango")
-        cpp_tango.fetch_commit("https://github.com/tango-controls/cppTango.git", "refs/tags/9.3.3")
+        cpp_tango.fetch_commit("https://gitlab.com/tango-controls/cppTango.git", "refs/tags/9.3.6")
 
         # Move patches to the cppTango folder
-        for patch_file in PATCHES:
-            copy(self, patch_file, src=self.recipe_folder, dst=self.source_folder)
+        # for patch_file in PATCHES:
+        #     copy(self, patch_file, src=self.recipe_folder, dst=self.source_folder)
 
         os.makedirs("tango-idl", exist_ok=True)
         idl = Git(self, folder="tango-idl")
-        idl.fetch_commit("https://github.com/tango-controls/tango-idl", "1e5edb84d966814ad367f2674ac9a5658b6724ac")
+        idl.fetch_commit("https://gitlab.com/tango-controls/tango-idl.git", "1e5edb84d966814ad367f2674ac9a5658b6724ac")
 
     def generate(self):
         env_and_vars = self._env_and_vars()
@@ -170,10 +170,10 @@ class CppTangoConan(ConanFile):
         shutil.copytree(source_location, self.build_folder, ignore=shutil.ignore_patterns(".git"), dirs_exist_ok=True)
 
         # Apply all patches
-        for patch_file in PATCHES:
-            self.output.info(f"Applying patch: {patch_file}")
-            copy(self, patch_file, src=self.source_folder, dst=self.build_folder)
-            patch(self, patch_file=join(self.build_folder, patch_file), base_path=self.build_folder)
+        # for patch_file in PATCHES:
+        #     self.output.info(f"Applying patch: {patch_file}")
+        #     copy(self, patch_file, src=self.source_folder, dst=self.build_folder)
+        #     patch(self, patch_file=join(self.build_folder, patch_file), base_path=self.build_folder)
 
         # Make sure CMakeLists.txt preamble is correct
         replace_in_file(self, "CMakeLists.txt", "cmake_minimum_required(VERSION 2.8.12)",
