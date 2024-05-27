@@ -99,6 +99,7 @@ class CppTangoConan(ConanFile):
         idl.fetch_commit("https://gitlab.com/tango-controls/tango-idl.git", "1e5edb84d966814ad367f2674ac9a5658b6724ac")
 
     def generate(self):
+        self.output.info(f"Using omniORB from {self.dependencies['omniorb'].package_folder}")
         env_and_vars = self._env_and_vars()
         cmake = CMakeToolchain(self)
         defs = {
@@ -114,6 +115,8 @@ class CppTangoConan(ConanFile):
             defs["OMNIORB_PKG_LIBRARIES"] = ';'.join(self.dependencies["omniorb"].cpp_info.libs)
             defs["ZMQ_PKG_LIBRARIES"] = ';'.join(self.dependencies["zeromq"].cpp_info.libs)
             defs["PTHREAD_WIN_PKG_LIBRARIES"] = ""
+            defs["CMAKE_BUILD_TYPE"] = str(self.settings.build_type).upper()
+            defs["TANGO_INSTALL_DEPENDENCIES"] = "OFF"
 
         defs.update(env_and_vars)
         for key, value in defs.items():
