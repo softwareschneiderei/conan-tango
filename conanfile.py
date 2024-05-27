@@ -104,6 +104,7 @@ class CppTangoConan(ConanFile):
         defs = {
             'IDL_BASE': join(self.build_folder, "tango-idl").replace("\\", "/"),
             'CMAKE_INSTALL_COMPONENT': "dynamic" if self.options.shared else "static",
+            'BUILD_TESTING': 'OFF',
         }
         if self.settings.os == "Windows" and self.options.pthread_windows:
             defs["PTHREAD_WIN"] = join(self.build_folder, "pthreads-win32").replace("\\", "/")
@@ -176,18 +177,18 @@ class CppTangoConan(ConanFile):
         #     patch(self, patch_file=join(self.build_folder, patch_file), base_path=self.build_folder)
 
         # Make sure CMakeLists.txt preamble is correct
+        self._cmake_comment_out("CMakeLists.txt", 'project(cppTango)')
         replace_in_file(self, "CMakeLists.txt", "cmake_minimum_required(VERSION 2.8.12)",
                         'cmake_minimum_required(VERSION 3.15)\n' +
                         'project(cppTango)\n\n' +
                         'find_package(Threads REQUIRED)')
+        
+        # Disable documentation build via Doxygen
+        self._cmake_comment_out("cppapi/CMakeLists.txt", "add_subdirectory(doxygen)",)
 
         # cppTango is using the CMAKE_INSTALL_FULL_<> variables from GNUInstallDirs
         # Replace them by their CMAKE_INSTALL_<> counterparts so CMAKE_INSTALL_PREFIX has an effect later
-        full_install_rule_files = [
-            "configure/CMakeLists.txt", "configure/cmake_linux.cmake", "cppapi/client/CMakeLists.txt",
-            "cppapi/client/helpers/CMakeLists.txt", "cppapi/server/CMakeLists.txt", "cppapi/server/idl/CMakeLists.txt",
-            "log4tango/include/log4tango/CMakeLists.txt", "log4tango/include/log4tango/threading/CMakeLists.txt"
-        ]
+        full_install_rule_files = ["configure/CMakeLists.txt"]
         for file in full_install_rule_files:
             replace_in_file(self, file, "CMAKE_INSTALL_FULL_", "CMAKE_INSTALL_")
 
