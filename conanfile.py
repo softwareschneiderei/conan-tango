@@ -209,8 +209,8 @@ class CppTangoConan(ConanFile):
 
             # ...and make sure the test whether that worked is correct
             replace_in_file(self, join(self.build_folder, "log4tango/config/config.cmake"),
-                            search="if(CMAKE_THREAD_LIBS_INIT)",
-                            replace="if(Threads_FOUND)")
+                            search="CMAKE_THREAD_LIBS_INIT",
+                            replace="Threads_FOUND")
 
             # Disable installation of the wrong variant (shared/static)
             cmake_linux = join(self.build_folder, "configure/cmake_linux.cmake")
@@ -234,9 +234,8 @@ class CppTangoConan(ConanFile):
                     replace_in_file(self, cmake_windows, '${{{1}_{0}}}'.format(dependency_suffix, variable),
                                           '${{{0}}}'.format(variable))
 
-        target = "tango" if self.options.shared else "tango-static"
         cmake = self._configured_cmake()
-        cmake.build(target=target)
+        cmake.build(target="tango")
 
     def package(self):
         self.output.info(f"Build folder: {self.build_folder}")

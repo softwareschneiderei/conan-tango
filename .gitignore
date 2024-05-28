@@ -5,3 +5,4 @@
 # Temporary folders for local conan workflow
 /build/
 /src/
+/test_package/CMakeUserPresets.json
