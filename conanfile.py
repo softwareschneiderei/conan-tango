@@ -11,19 +11,6 @@ from conan.errors import ConanException, ConanInvalidConfiguration
 PTHREADS_WIN32 = "https://github.com/tango-controls/Pthread_WIN32/releases/download/2.9.1/pthreads-win32-2.9.1_{0}.zip"
 
 
-def prepend_file_with(file_path, added):
-    lines = []
-    with open(file_path) as file:
-        lines = file.readlines()
-
-    # Prepend, if we have not already
-    if len(lines) >= len(added) and lines[:len(added)] != added:
-        lines = added + lines
-
-    with open(file_path, "w") as file:
-        file.writelines(lines)
-
-
 class CppTangoConan(ConanFile):
     name = "cpptango"
     version = "9.3.6"
@@ -203,10 +190,10 @@ class CppTangoConan(ConanFile):
 
         # Replace library dependencies by what conan provides
         if self.settings.os == "Windows":
-            preamble = [
-                'link_directories(${ZMQ_BASE}/lib)\n',
-            ]
-            prepend_file_with(join(self.build_folder, "configure/CMakeLists.txt"), preamble)
+            replace_in_file(self, join(self.build_folder, "configure/CMakeLists.txt"),
+                            search="include_directories(${ZMQ_BASE}/include)",
+                            replace="include_directories(${ZMQ_BASE}/include)\n    link_directories(${ZMQ_BASE}/lib)")
+            
             cmake_windows = join(self.build_folder, "configure/cmake_win.cmake")
             dependency_variables = ["OMNIORB_PKG_LIBRARIES", "ZMQ_PKG_LIBRARIES", "PTHREAD_WIN_PKG_LIBRARIES"]
             for dependency_suffix in ["DYN", "STA"]:
