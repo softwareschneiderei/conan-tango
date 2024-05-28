@@ -8,21 +8,6 @@ from conan.tools.scm import Git
 from conan.tools.files import replace_in_file, download, unzip, patch, copy
 from conan.errors import ConanException, ConanInvalidConfiguration
 
-DISABLE_RUNTIME_LIBRARY_OVERRIDES = "disable_runtime_library_overrides.patch"
-NO_SED_PATCH = "0001-Do-not-use-sed-for-file-enhancements.patch"
-CPPZMQ_INSTALL_PATCH = "fix_cppzmq_install_paths.patch"
-MAKE_PTHREAD_WIN_TRULY_OPTIONAL = "make_pthread_win_truly_optional.patch"
-TANGO_CONFIG_RESILIENT_AGAINST_PREDEFINES = "tango_config_resilient_against_predefines.patch"
-DO_NO_INSTALL_DEPENDENCIES = "do_not_install_dependencies.patch"
-FIX_LIBRARY_COMPONENTS = "fix_library_components.patch"
-
-PATCHES = [DISABLE_RUNTIME_LIBRARY_OVERRIDES,
-           NO_SED_PATCH, CPPZMQ_INSTALL_PATCH,
-           DO_NO_INSTALL_DEPENDENCIES,
-           MAKE_PTHREAD_WIN_TRULY_OPTIONAL,
-           TANGO_CONFIG_RESILIENT_AGAINST_PREDEFINES,
-           FIX_LIBRARY_COMPONENTS]
-
 PTHREADS_WIN32 = "https://github.com/tango-controls/Pthread_WIN32/releases/download/2.9.1/pthreads-win32-2.9.1_{0}.zip"
 
 
@@ -172,12 +157,6 @@ class CppTangoConan(ConanFile):
 
         # tango seems to only support in-source builds right now
         shutil.copytree(source_location, self.build_folder, ignore=shutil.ignore_patterns(".git"), dirs_exist_ok=True)
-
-        # Apply all patches
-        # for patch_file in PATCHES:
-        #     self.output.info(f"Applying patch: {patch_file}")
-        #     copy(self, patch_file, src=self.source_folder, dst=self.build_folder)
-        #     patch(self, patch_file=join(self.build_folder, patch_file), base_path=self.build_folder)
 
         # Make sure CMakeLists.txt preamble is correct
         self._cmake_comment_out("CMakeLists.txt", 'project(cppTango)')
