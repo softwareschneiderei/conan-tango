@@ -63,7 +63,7 @@ class CppTangoConan(ConanFile):
 
     def requirements(self):
         self.requires("zlib/1.2.11")
-        self.requires("zeromq/4.3.4")
+        self.requires("zeromq/4.3.5")
         self.requires("cppzmq/4.5.0", transitive_headers=True)
         self.requires("omniorb/4.2.3", transitive_headers=True)
 
@@ -174,6 +174,7 @@ class CppTangoConan(ConanFile):
         for file in full_install_rule_files:
             replace_in_file(self, file, "CMAKE_INSTALL_FULL_", "CMAKE_INSTALL_")
 
+        target = "tango" # This works for linux and windows/shared
         if self.settings.os == "Linux":
             # Disable tests since they do not work with python 3 (they need python 2)
             # Only needed on linux, since they are disabled for windows anyways
@@ -212,9 +213,13 @@ class CppTangoConan(ConanFile):
                 for variable in dependency_variables:
                     replace_in_file(self, cmake_windows, '${{{1}_{0}}}'.format(dependency_suffix, variable),
                                           '${{{0}}}'.format(variable))
-
+            
+            # Override the target for static windows builds
+            if not self.options.shared:
+              target = "tango-static"
+        
         cmake = self._configured_cmake()
-        cmake.build(target="tango")
+        cmake.build(target=target)
 
     def package(self):
         self.output.info(f"Build folder: {self.build_folder}")
