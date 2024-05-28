@@ -11,5 +11,12 @@ install:
   - conan profile detect
 
 test_script:
+  - ps: Start-FileDownload 'https://ci.appveyor.com/api/projects/softwareschneiderei/conan-omniorb/artifacts/omniorb_conan_cache.tgz'
+  - conan cache restore omniorb_conan_cache.tgz
   # Tango uses functionality deprecated after C++17, so we compile for C++14
   - conan create . -s compiler.cppstd=14
+  - conan cache save cpptango/* --file cpptango_conan_cache.tgz
+
+artifacts:
+  - path: cpptango_conan_cache.tgz
+    name: cppTango conan cache
